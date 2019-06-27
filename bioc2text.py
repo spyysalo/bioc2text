@@ -11,11 +11,40 @@ from contextlib import closing
 from logging import warning
 
 
+# Passage types to exclude from output. These are chosen to
+# exclude material that could break the flow of text.
+EXCLUDED_PASSAGE_TYPE = set([
+    'ref',
+    'table',
+    'table_caption',
+    'table_caption_title',
+    'table_footnote',
+    'table_footnote_title',
+    'table_title',
+    'fig',
+    'fig_caption',
+    'fig_caption_title',
+    'fig_footnote',
+    'footnote',
+    'footnote_title',
+])
+
+
+# Section types to exclude from output, chosen as above.
+EXCLUDED_SECTION_TYPE = set([
+    'REF',
+    'FIG',
+    'TABLE'
+])
+
+
 def argparser():
     from argparse import ArgumentParser
     ap = ArgumentParser()
     ap.add_argument('-l', '--limit', default=None, type=int,
                     help='maximum number of documents to process')
+    ap.add_argument('-m', '--min-length', metavar='INT', default=None, type=int,
+                    help='minimum document length (characters) to output')
     ap.add_argument('-r', '--random', metavar='RATIO', default=None,
                     type=float, help='process random ratio of documents')
     ap.add_argument('file', nargs='+', help='BioC data')
@@ -73,21 +102,25 @@ def get_passage_type(passage):
 
 
 def process_passage(passage, document, options):
-    if get_passage_type(passage) == 'table':
-        return
-    elif get_section_type(passage) == 'REF':
-        return
+    texts = []
+    if get_passage_type(passage) in EXCLUDED_PASSAGE_TYPE:
+        return []
+    elif get_section_type(passage) in EXCLUDED_SECTION_TYPE:
+        return []
     for text in passage.findall('.//text'):
-        print(inner_text(text))
+        texts.append(inner_text(text))
+    texts = [t for t in texts if t and not t.isspace()]
+    return texts
 
 
-def process_document(document, options):
+def process_document(document, options, count):
     if options.random is not None and random() > options.random:
         return 0
     doc_id = find_only(document, 'id').text
+    texts = []
     for element in document:
         if element.tag == 'passage':
-            process_passage(element, document, options)
+            texts.extend(process_passage(element, document, options))
         elif element.tag == 'infon':
             pass    # could be license etc.
         elif element.tag == 'id':
@@ -95,6 +128,12 @@ def process_document(document, options):
         else:
             warning('unexpected tag in document {}: {}'.format(
                 element.tag, doc_id))
+    doc_text = '\n'.join(texts)
+    if options.min_length is not None and len(doc_text) < options.min_length:
+        return 0
+    if count != 0:
+        print()    # blank line separates documents
+    print(doc_text)
     return 1
 
 
@@ -102,7 +141,7 @@ def process_stream(stream, name, options, count=0):
     for event, element in stream:
         if event != 'end' or element.tag != 'document':
             continue
-        count += process_document(element, options)
+        count += process_document(element, options, count)
         if options.limit is not None and count >= options.limit:
             break
         element.clear()
