@@ -41,6 +41,8 @@ EXCLUDED_SECTION_TYPE = set([
 def argparser():
     from argparse import ArgumentParser
     ap = ArgumentParser()
+    ap.add_argument('-i', '--include-id', default=False, action='store_true',
+                    help='include document ID in output')
     ap.add_argument('-l', '--limit', default=None, type=int,
                     help='maximum number of documents to process')
     ap.add_argument('-m', '--min-length', metavar='INT', default=None, type=int,
@@ -133,6 +135,8 @@ def process_document(document, options, count):
         return 0
     if count != 0:
         print()    # blank line separates documents
+    if options.include_id:
+        print(28*'-', 'DOC-ID: "{}"'.format(doc_id.strip()), 28*'-')
     print(doc_text)
     return 1
 
