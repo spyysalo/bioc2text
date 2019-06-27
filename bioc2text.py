@@ -109,7 +109,7 @@ def process_passage(passage, document, options):
         return []
     for text in passage.findall('.//text'):
         texts.append(inner_text(text))
-    texts = [t for t in texts if t and not t.isspace()]
+    texts = [t.strip() for t in texts if t and not t.isspace()]
     return texts
 
 
