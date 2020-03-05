@@ -103,14 +103,20 @@ def get_passage_type(passage):
     return types[0]
 
 
-def process_passage(passage, document, options):
+def process_passage(passage, document, doc_id, options):
     texts = []
     if get_passage_type(passage) in EXCLUDED_PASSAGE_TYPE:
         return []
     elif get_section_type(passage) in EXCLUDED_SECTION_TYPE:
         return []
-    for text in passage.findall('.//text'):
-        texts.append(inner_text(text))
+    for element in passage:
+        if element.tag == 'text':
+            texts.append(inner_text(element))
+        elif element.tag in ('annotation', 'infon', 'offset'):
+            pass    # data
+        else:
+            warning('unexpected tag in passage {} (doc {})'.format(
+                element.tag, doc_id))
     texts = [t.strip() for t in texts if t and not t.isspace()]
     return texts
 
@@ -122,14 +128,14 @@ def process_document(document, options, count):
     texts = []
     for element in document:
         if element.tag == 'passage':
-            texts.extend(process_passage(element, document, options))
+            texts.extend(process_passage(element, document, doc_id, options))
         elif element.tag == 'infon':
             pass    # could be license etc.
         elif element.tag == 'id':
             pass
         else:
             warning('unexpected tag in document {}: {}'.format(
-                element.tag, doc_id))
+                doc_id, element.tag))
     doc_text = '\n'.join(texts)
     if options.min_length is not None and len(doc_text) < options.min_length:
         return 0
